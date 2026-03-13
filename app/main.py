@@ -81,7 +81,7 @@ def main():
         chat = client.chat.completions.create(
             model="anthropic/claude-haiku-4.5",
             messages=messages,
-            tools=[ read_tool_spec, write_tool_spec ],
+            tools=[ read_tool_spec, write_tool_spec , bash_tool_spec ],
         )
 
         if not chat.choices or len(chat.choices) == 0:
