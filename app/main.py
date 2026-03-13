@@ -125,13 +125,16 @@ def main():
                 command = json.loads(function_args).get("command")
                 result = subprocess.run(command, capture_output=True, shell=True)
 
-                print(f'Bash command stdout: {result.stdout}')
-                print(f'Bash command stderr: {result.stderr}')
+                stdout = result.stdout.decode('utf-8')
+                stderr = result.stderr.decode('utf-8')
+
+                print(f'Bash command stdout: {stdout}')
+                print(f'Bash command stderr: {stderr}')
 
                 message = {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": result.stderr if result.stderr else result.stdout
+                    "content": stderr if stderr else stdout
                 }
 
                 print('Appending to messages:', message)
