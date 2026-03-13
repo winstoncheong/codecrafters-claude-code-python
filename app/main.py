@@ -121,12 +121,13 @@ def main():
             
             elif function_name == "Bash": # execute the Bash tool call
                 command = json.loads(function_args).get("command")
-                tool_call_result = subprocess.run(command, capture_output=True, shell=True)
+                result = subprocess.run(command, capture_output=True, shell=True)
+
 
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": tool_call_result
+                    "content": result.stderr if result.stderr else result.stdout
                 })
             
         else: # No tool_calls array
