@@ -87,7 +87,7 @@ def main():
         if not chat.choices or len(chat.choices) == 0:
             raise RuntimeError("no choices in response")
 
-        print(f"#choices: {len(chat.choices)}")
+        # print(f"#choices: {len(chat.choices)}")
 
         # add messages to the list regardless
         messages.append(chat.choices[0].message)
@@ -97,7 +97,7 @@ def main():
             function_name = tool_call.function.name
             function_args = tool_call.function.arguments
 
-            print(f"Tool call: {function_name} with args: {function_args}")
+            # print(f"Tool call: {function_name} with args: {function_args}")
 
             if function_name == "Read": # execute the Read tool call
                 file_path = json.loads(function_args).get("file_path")
@@ -128,8 +128,8 @@ def main():
                 stdout = result.stdout.decode('utf-8')
                 stderr = result.stderr.decode('utf-8')
 
-                print(f'Bash command stdout: {stdout}')
-                print(f'Bash command stderr: {stderr}')
+                # print(f'Bash command stdout: {stdout}')
+                # print(f'Bash command stderr: {stderr}')
 
                 message = {
                     "role": "tool",
@@ -137,7 +137,7 @@ def main():
                     "content": stderr if stderr else stdout
                 }
 
-                print('Appending to messages:', message)
+                # print('Appending to messages:', message)
 
                 messages.append(message)
             
