@@ -87,6 +87,8 @@ def main():
         if not chat.choices or len(chat.choices) == 0:
             raise RuntimeError("no choices in response")
 
+        print(f"#choices: {len(chat.choices)}")
+
         # add messages to the list regardless
         messages.append(chat.choices[0].message)
 
