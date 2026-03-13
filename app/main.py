@@ -123,6 +123,8 @@ def main():
                 command = json.loads(function_args).get("command")
                 result = subprocess.run(command, capture_output=True, shell=True)
 
+                print(f'Bash command result: {result}')
+
 
                 messages.append({
                     "role": "tool",
