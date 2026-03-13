@@ -125,14 +125,18 @@ def main():
                 command = json.loads(function_args).get("command")
                 result = subprocess.run(command, capture_output=True, shell=True)
 
-                print(f'Bash command result: {result}')
+                print(f'Bash command stdout: {result.stdout}')
+                print(f'Bash command stderr: {result.stderr}')
 
-
-                messages.append({
+                message = {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "content": result.stderr if result.stderr else result.stdout
-                })
+                }
+
+                print('Appending to messages:', message)
+
+                messages.append(message)
             
         else: # No tool_calls array
             print(chat.choices[0].message.content)
