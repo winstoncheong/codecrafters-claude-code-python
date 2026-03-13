@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import json
+import subprocess
 
 from openai import OpenAI
 
@@ -48,6 +49,20 @@ read_tool_spec = {
     },
 }
 
+bash_tool_spec = {
+    "type": "function",
+    "function": {
+        "name": "Bash",
+        "description": "Execute a shell command",
+        "parameters": {
+            "type": "object",
+            "required": ["command"],
+            "properties": {
+                "command": {"type": "string", "description": "The command to execute"}
+            },
+        },
+    },
+}
 
 def main():
     p = argparse.ArgumentParser()
@@ -100,6 +115,16 @@ def main():
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "content": f"File {file_path} written successfully"
+                })
+            
+            elif function_name == "Bash": # execute the Bash tool call
+                command = json.loads(function_args).get("command")
+                tool_call_result = subprocess.run(command, capture_output=True, shell=True)
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": tool_call_result
                 })
             
         else: # No tool_calls array
