@@ -95,6 +95,8 @@ def main():
             function_name = tool_call.function.name
             function_args = tool_call.function.arguments
 
+            print(f"Tool call: {function_name} with args: {function_args}")
+
             if function_name == "Read": # execute the Read tool call
                 file_path = json.loads(function_args).get("file_path")
                 tool_call_result = open(file_path).read()
