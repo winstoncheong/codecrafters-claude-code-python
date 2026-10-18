@@ -96,13 +96,15 @@ def main():
 
     system_prompt = build_system_prompt()
 
-    # Handle slash commands: /skill-name resolves to the skill's body
+    # Handle slash commands: /skill-name arg1 arg2 resolves to the skill's body
     prompt = args.p
     if prompt.startswith("/"):
-        skill_name = prompt[1:].split()[0]  # first word after /
+        parts = prompt[1:].split()
+        skill_name = parts[0]
+        skill_args = parts[1:]
         skill_path = resolve_skill(skill_name)
         if skill_path:
-            prompt = get_skill_body(skill_path)
+            prompt = get_skill_body(skill_path, skill_args)
 
     messages=[
         {"role": "system", "content": system_prompt},

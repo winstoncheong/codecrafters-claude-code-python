@@ -60,18 +60,32 @@ def find_skills(skills_dir=SKILLS_DIR):
     return skills
 
 
-def get_skill_body(skill_path):
-    """Read a SKILL.md file and return the body (everything after the closing '---')."""
+def get_skill_body(skill_path, args=None):
+    """Read a SKILL.md file and return the body (everything after the closing '---').
+
+    If args is provided, substitutes $ARGUMENTS with all args joined by space,
+    and $0, $1, etc. with individual positional args.
+    """
     with open(skill_path, encoding="utf-8") as f:
         content = f.read()
 
     # Find the closing '---' delimiter
     end = content.find("\n---", 3)
     if end == -1:
-        return content.strip()
+        body = content
+    else:
+        body = content[end + 4:]
 
-    # Return everything after the closing '---\n'
-    return content[end + 4:].strip()
+    body = body.strip()
+
+    if args:
+        # Substitute $ARGUMENTS with all args
+        body = body.replace("$ARGUMENTS", " ".join(args))
+        # Substitute $0, $1, etc. with positional args
+        for i, arg in enumerate(args):
+            body = body.replace(f"${i}", arg)
+
+    return body
 
 
 def resolve_skill(name, skills_dir=SKILLS_DIR):
