@@ -96,15 +96,22 @@ def main():
 
     system_prompt = build_system_prompt()
 
-    # Handle slash commands: /skill-name arg1 arg2 resolves to the skill's body
+    # Handle slash commands: /skill1 /skill2 arg1 arg2
+    # Multiple skills can be invoked in one prompt, sharing the same arguments.
     prompt = args.p
     if prompt.startswith("/"):
-        parts = prompt[1:].split()
-        skill_name = parts[0]
-        skill_args = parts[1:]
-        skill_path = resolve_skill(skill_name)
-        if skill_path:
-            prompt = get_skill_body(skill_path, skill_args)
+        parts = prompt.split()
+        skill_names = [p[1:] for p in parts if p.startswith("/")]
+        skill_args = [p for p in parts if not p.startswith("/")]
+
+        bodies = []
+        for name in skill_names:
+            skill_path = resolve_skill(name)
+            if skill_path:
+                bodies.append(get_skill_body(skill_path, skill_args))
+
+        if bodies:
+            prompt = "\n\n".join(bodies)
 
     messages=[
         {"role": "system", "content": system_prompt},
