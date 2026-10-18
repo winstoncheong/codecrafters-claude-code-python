@@ -96,6 +96,18 @@ def resolve_skill(name, skills_dir=SKILLS_DIR):
     return None
 
 
+def get_skill_context(skill_path):
+    """Read a SKILL.md file and return the context field from its frontmatter.
+
+    Returns the context value (e.g. 'fork') or None if not set.
+    """
+    with open(skill_path, encoding="utf-8") as f:
+        content = f.read()
+
+    metadata = parse_frontmatter(content)
+    return metadata.get("context")
+
+
 def format_skills_for_prompt(skills):
     """Format the list of skills for inclusion in the system prompt."""
     if not skills:
