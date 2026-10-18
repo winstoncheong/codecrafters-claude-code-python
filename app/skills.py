@@ -60,6 +60,28 @@ def find_skills(skills_dir=SKILLS_DIR):
     return skills
 
 
+def get_skill_body(skill_path):
+    """Read a SKILL.md file and return the body (everything after the closing '---')."""
+    with open(skill_path, encoding="utf-8") as f:
+        content = f.read()
+
+    # Find the closing '---' delimiter
+    end = content.find("\n---", 3)
+    if end == -1:
+        return content.strip()
+
+    # Return everything after the closing '---\n'
+    return content[end + 4:].strip()
+
+
+def resolve_skill(name, skills_dir=SKILLS_DIR):
+    """Resolve a skill name to its SKILL.md path. Returns None if not found."""
+    skill_file = os.path.join(skills_dir, name, SKILL_FILE)
+    if os.path.isfile(skill_file):
+        return skill_file
+    return None
+
+
 def format_skills_for_prompt(skills):
     """Format the list of skills for inclusion in the system prompt."""
     if not skills:

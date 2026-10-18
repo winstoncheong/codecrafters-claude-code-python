@@ -6,7 +6,7 @@ import subprocess
 
 from openai import OpenAI
 
-from app.skills import find_skills, format_skills_for_prompt
+from app.skills import find_skills, format_skills_for_prompt, get_skill_body, resolve_skill
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")
@@ -95,9 +95,18 @@ def main():
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
     system_prompt = build_system_prompt()
+
+    # Handle slash commands: /skill-name resolves to the skill's body
+    prompt = args.p
+    if prompt.startswith("/"):
+        skill_name = prompt[1:].split()[0]  # first word after /
+        skill_path = resolve_skill(skill_name)
+        if skill_path:
+            prompt = get_skill_body(skill_path)
+
     messages=[
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": args.p},
+        {"role": "user", "content": prompt},
     ]
 
     while True: # agent loop
