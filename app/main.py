@@ -6,6 +6,8 @@ import subprocess
 
 from openai import OpenAI
 
+from app.skills import find_skills, format_skills_for_prompt
+
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")
 
@@ -64,6 +66,24 @@ bash_tool_spec = {
     },
 }
 
+def build_system_prompt():
+    skills = find_skills()
+    skills_section = format_skills_for_prompt(skills)
+
+    base = "You are a helpful AI coding assistant."
+
+    if skills_section:
+        return f"""{base}
+
+The following skills are available. When a user's request matches a skill's
+description, use the Read tool to load the skill's full instructions and
+follow them.
+
+{skills_section}"""
+
+    return base
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("-p", required=True)
@@ -74,7 +94,11 @@ def main():
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-    messages=[{"role": "user", "content": args.p}]
+    system_prompt = build_system_prompt()
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": args.p},
+    ]
 
     while True: # agent loop
 
