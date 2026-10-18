@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass, field
 
 import yaml
 
@@ -6,32 +7,46 @@ SKILLS_DIR = os.path.join(".claude", "skills")
 SKILL_FILE = "SKILL.md"
 
 
-def parse_frontmatter(content):
-    """Parse YAML frontmatter from markdown content.
+@dataclass
+class Skill:
+    name: str
+    description: str
+    path: str
+    context: str | None = None
+    body: str = ""
 
-    Frontmatter is delimited by '---' on the first line and '---' on its
-    own line. Returns a dict of metadata, or an empty dict if none found.
-    """
+    def expand_body(self, args=None):
+        """Return the body with $ARGUMENTS and $0, $1, etc. substituted."""
+        result = self.body
+        if args:
+            result = result.replace("$ARGUMENTS", " ".join(args))
+            for i, arg in enumerate(args):
+                result = result.replace(f"${i}", arg)
+        return result
+
+
+def parse_frontmatter(content):
+    """Parse YAML frontmatter from markdown content."""
     if not content.startswith("---"):
         return {}
-
-    # Find the closing '---' delimiter
     end = content.find("\n---", 3)
     if end == -1:
         return {}
-
-    frontmatter = content[4:end]  # skip opening '---\n'
+    frontmatter = content[4:end]
     data = yaml.safe_load(frontmatter)
     return data if isinstance(data, dict) else {}
 
 
-def find_skills(skills_dir=SKILLS_DIR):
-    """Find all skills on disk under the skills directory.
+def extract_body(content):
+    """Extract the body (everything after the closing '---') from markdown content."""
+    end = content.find("\n---", 3)
+    if end == -1:
+        return content.strip()
+    return content[end + 4:].strip()
 
-    Each skill is a subdirectory containing a SKILL.md file with YAML
-    frontmatter (name, description). Returns a list of skill dicts sorted
-    by name.
-    """
+
+def find_skills(skills_dir=SKILLS_DIR):
+    """Find all skills on disk, reading and parsing each file once."""
     skills = []
 
     if not os.path.isdir(skills_dir):
@@ -48,64 +63,22 @@ def find_skills(skills_dir=SKILLS_DIR):
             content = f.read()
 
         metadata = parse_frontmatter(content)
-        name = metadata.get("name", entry)
-        description = metadata.get("description", "")
+        body = extract_body(content)
 
-        skills.append({
-            "name": name,
-            "description": description,
-            "path": skill_file,
-        })
+        skills.append(Skill(
+            name=metadata.get("name", entry),
+            description=metadata.get("description", ""),
+            path=skill_file,
+            context=metadata.get("context"),
+            body=body,
+        ))
 
     return skills
 
 
-def get_skill_body(skill_path, args=None):
-    """Read a SKILL.md file and return the body (everything after the closing '---').
-
-    If args is provided, substitutes $ARGUMENTS with all args joined by space,
-    and $0, $1, etc. with individual positional args.
-    """
-    with open(skill_path, encoding="utf-8") as f:
-        content = f.read()
-
-    # Find the closing '---' delimiter
-    end = content.find("\n---", 3)
-    if end == -1:
-        body = content
-    else:
-        body = content[end + 4:]
-
-    body = body.strip()
-
-    if args:
-        # Substitute $ARGUMENTS with all args
-        body = body.replace("$ARGUMENTS", " ".join(args))
-        # Substitute $0, $1, etc. with positional args
-        for i, arg in enumerate(args):
-            body = body.replace(f"${i}", arg)
-
-    return body
-
-
-def resolve_skill(name, skills_dir=SKILLS_DIR):
-    """Resolve a skill name to its SKILL.md path. Returns None if not found."""
-    skill_file = os.path.join(skills_dir, name, SKILL_FILE)
-    if os.path.isfile(skill_file):
-        return skill_file
-    return None
-
-
-def get_skill_context(skill_path):
-    """Read a SKILL.md file and return the context field from its frontmatter.
-
-    Returns the context value (e.g. 'fork') or None if not set.
-    """
-    with open(skill_path, encoding="utf-8") as f:
-        content = f.read()
-
-    metadata = parse_frontmatter(content)
-    return metadata.get("context")
+def build_skill_catalog(skills):
+    """Build a name-to-Skill lookup dict."""
+    return {s.name: s for s in skills}
 
 
 def format_skills_for_prompt(skills):
@@ -115,8 +88,8 @@ def format_skills_for_prompt(skills):
 
     lines = []
     for skill in skills:
-        line = f"- **{skill['name']}**: {skill['description']}"
-        line += f" (Read `{skill['path']}` for full instructions)"
+        line = f"- **{skill.name}**: {skill.description}"
+        line += f" (Read `{skill.path}` for full instructions)"
         lines.append(line)
 
     return "\n".join(lines)

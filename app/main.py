@@ -6,7 +6,7 @@ import subprocess
 
 from openai import OpenAI
 
-from app.skills import find_skills, format_skills_for_prompt, get_skill_body, resolve_skill, get_skill_context
+from app.skills import find_skills, build_skill_catalog, format_skills_for_prompt
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")
@@ -104,7 +104,46 @@ and follow the instructions it returns."""
     return base
 
 
-def run_agent_loop(client, messages):
+def handle_read(args):
+    file_path = args.get("file_path")
+    return open(file_path).read()
+
+
+def handle_write(args):
+    file_path = args.get("file_path")
+    content = args.get("content")
+    with open(file_path, "w") as f:
+        f.write(content)
+    return f"File {file_path} written successfully"
+
+
+def handle_bash(args):
+    command = args.get("command")
+    result = subprocess.run(command, capture_output=True, shell=True)
+    stdout = result.stdout.decode("utf-8")
+    stderr = result.stderr.decode("utf-8")
+    return stderr if stderr else stdout
+
+
+def handle_skill(args, client, catalog):
+    skill_name = args.get("name")
+    args_str = args.get("args", "")
+    skill_args = args_str.split() if args_str else None
+
+    skill = catalog.get(skill_name)
+    if not skill:
+        return f"Skill '{skill_name}' not found"
+
+    if skill.context == "fork":
+        body = skill.expand_body(skill_args)
+        subagent_messages = [{"role": "user", "content": body}]
+        subagent_response = run_agent_loop(client, subagent_messages)
+        return f"Skill {skill_name} ran in a separate context and returned: {subagent_response}"
+
+    return skill.expand_body(skill_args)
+
+
+def run_agent_loop(client, messages, catalog):
     """Run the agent loop over the given messages and return the final response text."""
     while True:
         chat = client.chat.completions.create(
@@ -121,67 +160,24 @@ def run_agent_loop(client, messages):
         if chat.choices[0].message.tool_calls is not None:
             tool_call = chat.choices[0].message.tool_calls[0]
             function_name = tool_call.function.name
-            function_args = tool_call.function.arguments
+            function_args = json.loads(tool_call.function.arguments)
 
             if function_name == "Read":
-                file_path = json.loads(function_args).get("file_path")
-                tool_call_result = open(file_path).read()
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": tool_call_result
-                })
-
+                result = handle_read(function_args)
             elif function_name == "Write":
-                file_path = json.loads(function_args).get("file_path")
-                content = json.loads(function_args).get("content")
-                with open(file_path, "w") as f:
-                    f.write(content)
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": f"File {file_path} written successfully"
-                })
-
+                result = handle_write(function_args)
             elif function_name == "Bash":
-                command = json.loads(function_args).get("command")
-                result = subprocess.run(command, capture_output=True, shell=True)
-
-                stdout = result.stdout.decode('utf-8')
-                stderr = result.stderr.decode('utf-8')
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": stderr if stderr else stdout
-                })
-
+                result = handle_bash(function_args)
             elif function_name == "Skill":
-                skill_name = json.loads(function_args).get("name")
-                skill_args_str = json.loads(function_args).get("args", "")
-                skill_args = skill_args_str.split() if skill_args_str else None
+                result = handle_skill(function_args, client, catalog)
+            else:
+                result = f"Unknown tool: {function_name}"
 
-                skill_path = resolve_skill(skill_name)
-                if not skill_path:
-                    tool_call_result = f"Skill '{skill_name}' not found"
-                else:
-                    context = get_skill_context(skill_path)
-                    if context == "fork":
-                        # Run the skill body in a subagent (separate conversation)
-                        body = get_skill_body(skill_path, skill_args)
-                        subagent_messages = [{"role": "user", "content": body}]
-                        subagent_response = run_agent_loop(client, subagent_messages)
-                        tool_call_result = f"Skill {skill_name} ran in a separate context and returned: {subagent_response}"
-                    else:
-                        tool_call_result = get_skill_body(skill_path, skill_args)
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": tool_call_result
-                })
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": result,
+            })
 
         else:
             return chat.choices[0].message.content
@@ -197,6 +193,8 @@ def main():
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
+    skills = find_skills()
+    catalog = build_skill_catalog(skills)
     system_prompt = build_system_prompt()
 
     # Handle slash commands: /skill1 /skill2 arg1 arg2
@@ -208,9 +206,9 @@ def main():
 
         bodies = []
         for name in skill_names:
-            skill_path = resolve_skill(name)
-            if skill_path:
-                bodies.append(get_skill_body(skill_path, skill_args))
+            skill = catalog.get(name)
+            if skill:
+                bodies.append(skill.expand_body(skill_args))
 
         if bodies:
             prompt = "\n\n".join(bodies)
@@ -220,7 +218,7 @@ def main():
         {"role": "user", "content": prompt},
     ]
 
-    response = run_agent_loop(client, messages)
+    response = run_agent_loop(client, messages, catalog)
     print(response)
 
 
