@@ -137,7 +137,7 @@ def handle_skill(args, client, catalog):
     if skill.context == "fork":
         body = skill.expand_body(skill_args)
         subagent_messages = [{"role": "user", "content": body}]
-        subagent_response = run_agent_loop(client, subagent_messages)
+        subagent_response = run_agent_loop(client, subagent_messages, catalog)
         return f"Skill {skill_name} ran in a separate context and returned: {subagent_response}"
 
     return skill.expand_body(skill_args)
